@@ -1,0 +1,54 @@
+var zlib = require('zlib');
+
+var QUEUE_URL = 'https://sqs.us-east-1.amazonaws.com/31415926/ElasticsearchQueue';
+var AWS = require('aws-sdk');
+var sqs = new AWS.SQS({
+    region: 'us-east-1'
+});
+
+exports.handler = function(input, context) {
+    // decode input from base64
+    var zippedInput = new Buffer(input.awslogs.data, 'base64');
+
+    // decompress the input
+    zlib.gunzip(zippedInput, function(error, buffer) {
+        if (error) {
+            context.fail(error);
+            return;
+        }
+
+        // parse the input from JSON
+        var awslogsData = JSON.parse(buffer.toString('utf8'));
+
+
+        // skip control messages
+        if (awslogsData.messageType === 'CONTROL_MESSAGE') {
+            console.log('Received a control message');
+            context.succeed('Control message handled successfully');
+            return;
+        }
+
+        for (var i = 0; i < awslogsData.logEvents.length; i++) {
+            var parameters = {
+                //convert a JSON object to a JSON string prior to sending
+                MessageBody: JSON.stringify(awslogsData.logEvents[i]),
+                QueueUrl: QUEUE_URL
+            };
+            console.log('Sending ' + JSON.stringify(awslogsData.logEvents[i]));
+            sendSQSMessage(parameters, context);
+        }
+
+    });
+};
+
+function sendSQSMessage(params, localContext) {
+            sqs.sendMessage(params, function(err, data) {
+            if (err) {
+                console.log('error:', "Fail Send Message" + err);
+                localContext.done('error', "ERROR Put SQS"); // ERROR with message
+            } else {
+                console.log('data:', data.MessageId);
+                localContext.done(null, ''); // SUCCESS 
+            }
+        });
+} // end of function sendSQSMessage
