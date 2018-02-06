@@ -1,4 +1,4 @@
-# common-logging
+# Common Logging and Error Handling Platform
 A collection of scripts, diagrams and serverless Amazon tech to collect, analyze and act on disparate operational data streams.
 
 ## Overview
